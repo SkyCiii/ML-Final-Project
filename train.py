@@ -1,5 +1,4 @@
 import pandas as pd
-from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
 
 train_data = pd.read_csv('train.csv').fillna(-1)
@@ -79,8 +78,16 @@ y = train_label['label'].values
 x_orig = train_data.drop(labels=['ID', 'is_canceled', 'adr', 'revenue', 'reservation_status', 'reservation_status_date'], axis=1)
 x_groupby = x_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).sum()
 x = x_groupby.reset_index().values
-clf = SVC(C=0.5, gamma='scale', kernel='poly', degree=3, coef0=1, decision_function_shape='ovr')
+clf = SVC(C=3, gamma='scale', kernel='poly', degree=3, coef0=0, decision_function_shape='ovr')
 clf.fit(x, y)
+
+# ------------- E_in ------------- #
+y_in = clf.predict(x)
+error = 0
+for i in range(0, len(y)):
+    error += abs(y[i]-y_in[i])
+E_in = error/len(y)
+print(E_in)
 
 # ------------- test x ------------- #
 test_data = pd.read_csv('test.csv').fillna(-1)
