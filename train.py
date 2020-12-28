@@ -1,11 +1,13 @@
 import pandas as pd
 import numpy as np
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
 
-# BEST: C=3, poly=3, x.sum()
-
+# ------------- import ------------- #
 train_data = pd.read_csv('train.csv').fillna(-1)
 train_label = pd.read_csv('train_label.csv')
+test_data = pd.read_csv('test.csv').fillna(-1)
+test_label = pd.read_csv('test_nolabel.csv')
 
 # ------------- drop invalid data ------------- #
 adr = train_data['adr']
@@ -79,6 +81,7 @@ def preprocessing(data):
         return data
 
 train_data = preprocessing(train_data)
+test_data = preprocessing(test_data)
 
 # ------------- revenue per day (part2) ------------- #
 # train_data['revenue'] = revenue
@@ -92,37 +95,20 @@ train_data = preprocessing(train_data)
 def agg_function(x):
     return x.sum()
 
-# ------------- split data into training and validating set ------------- #
-valid_data = train_data.iloc[70000:, :]
-train_data_part = train_data.iloc[:70000:, :]
+y_all = train_label['label'].values
 
-valid_label = train_label.iloc[486:, :]
-train_label_part = train_label.iloc[:487, :]
-
-# ------------- original data without splitting ------------- #
-y_fit = train_label['label'].values
-
-x_fit = train_data.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
-x_fit_groupby = x_fit.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
-x_fit = x_fit_groupby.reset_index().values
-
-# ------------- training y, x ------------- #
-y_train = train_label_part['label'].values
-y_valid = valid_label['label'].values
-
-x_train_orig = train_data_part.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
-x_train_groupby = x_train_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
-x_train = x_train_groupby.reset_index().values
-
-x_valid_orig = valid_data.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
-x_valid_groupby = x_valid_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
-x_valid = x_valid_groupby.reset_index().values
+x_all = train_data.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
+x_all_groupby = x_all.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
+x_all = x_all_groupby.reset_index().values
 
 # ------------- validating y, x and selecet g- with minima error ------------- #
 gamma = ['scale', 'auto']
 kernel = ['poly', 'rbf', 'sigmoid']
-def select_model(C, kernel, degree, coef0):
-    score_list = []
+def select_model(C, kernel, degree, coef0, is_score):
+    # ------------- split ------------- #
+    x_train_part, x_valid_part, y_train_part, y_valid_part = train_test_split(x_all, y_all, test_size=0.3)
+
+    point_list = []
     for c in range(5, C*10+1, 5):
         c = c/10
         for k in kernel:
@@ -131,52 +117,70 @@ def select_model(C, kernel, degree, coef0):
                     clf = SVC(C=c, kernel=k, degree=d, coef0=coef)
 
                     # ------------- best score ------------- #
-                    clf.fit(x_train, y_train)
-                    score = clf.score(x_valid, y_valid)
-                    score_list.append([c, k, d, coef, score])
+                    clf.fit(x_train_part, y_train_part)
+                    if is_score:
+                        point = clf.score(x_valid_part, y_valid_part)
+                    else:
+                        y_val = clf.predict(x_valid_part)
+                        point = sum(abs(y_val - y_valid_part))/len(y_val)
 
-                    y_val = clf.predict(x_valid)
-                    error = 0
-                    for i in range(0, len(y_valid)):
-                        error += abs(y_val[i]-y_valid[i])
-                    E_val = error/len(y_valid)
+                    point_list.append([c, k, d, coef, point])
                     
-                    if E_val < 0.5:
-                        print(c, k ,d ,coef, E_val)
-                    
-    return score_list
+    return point_list
 
-score_list = select_model(5, kernel, 5, 5)
-score_frame = pd.DataFrame(score_list, columns=['C', 'kernel', 'degree', 'coef', 'score'])
-score_frame.to_csv('validation_error.csv')
-score_max = score_frame[score_frame['score'] == score_frame['score'].max()]
+def main(counts, is_score):
+    y_test_list = []
+    for count in range(0, counts):
+        print('------------------------------------ ' + str(count) + ' ------------------------------------')
+        point_list = select_model(5, kernel, 5, 5, is_score)
+        point_frame = pd.DataFrame(point_list, columns=['C', 'kernel', 'degree', 'coef', 'point(score->max/E_val->min)'])
+        point_frame.to_csv('validation_error.csv')
+        if is_score:
+            point = point_frame[point_frame['point(score->max/E_val->min)'] == point_frame['point(score->max/E_val->min)'].max()]
+        else:
+            point = point_frame[point_frame['point(score->max/E_val->min)'] == point_frame['point(score->max/E_val->min)'].min()]
+        print(point)
 
-# ------------- recalculate g with g- ------------- #
-c_best = score_max['C'].values[0]
-k_best = score_max['kernel'].values[0]
-d_best = score_max['degree'].values[0]
-coef_best = score_max['coef'].values[0]
-print('C: ', c_best, 'K: ', k_best, 'degree: ', d_best, 'coef0: ', coef_best)
-clf = SVC(C=c_best, kernel=k_best, degree=d_best, coef0=coef_best)
-clf.fit(x_fit, y_fit)
+        # ------------- recalculate g with g- and get the optimal parameters ------------- #
+        c_best = point['C'].values[0]
+        k_best = point['kernel'].values[0]
+        d_best = point['degree'].values[0]
+        coef_best = point['coef'].values[0]
+        print(
+            'C: ', c_best,
+            'K: ', k_best,
+            'degree: ', d_best,
+            'coef0: ', coef_best,
+        )
 
-# ------------- E_in ------------- #
-y_in = clf.predict(x_fit)
-print('score_in: ', clf.score(x_fit, y_fit))
+        # ------------- fit the model with g and optimal parameters ------------- #
+        clf = SVC(C=c_best, kernel=k_best, degree=d_best, coef0=coef_best)
+        clf.fit(x_all, y_all)
 
-# ------------- test ------------- #
-test_data = pd.read_csv('test.csv').fillna(-1)
-test_label = pd.read_csv('test_nolabel.csv')
-test_data = preprocessing(test_data)
+        # ------------- E_in ------------- #
+        y_in = clf.predict(x_all)
+        E_in = sum(abs(y_in - y_all))/len(y_all)
+        print(
+            'E_in: ', E_in,
+            'score_in: ', clf.score(x_all, y_all),
+        )
 
-x_test_orig = test_data.drop(labels='ID', axis=1)
-x_test_groupby = x_test_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
-x_test = x_test_groupby.reset_index().values
+        # ------------- test ------------- #
+        x_test_orig = test_data.drop(labels='ID', axis=1)
+        x_test_groupby = x_test_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
+        x_test = x_test_groupby.reset_index().values
 
-y_test = clf.predict(x_test)
-test_label['label'] = y_test
+        y_test = clf.predict(x_test)
+        y_test_list.append(y_test)
+
+    y_final = np.around(sum(y_test_list)/counts)
+
+    return y_final
+
+y_final = main(1000, 1)
+print(y_final)
+test_label['label'] = y_final
 test_label.to_csv('test_label.csv', index=False)
-print('test output: ', y_test, sep='\n')
 
 # ------------- without data compression ------------- #
 # y = train_data['revenue'].values
