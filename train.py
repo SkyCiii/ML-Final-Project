@@ -14,6 +14,7 @@ weekend = train_data['stays_in_weekend_nights']
 adults = train_data['adults']
 children = train_data['children']
 babies = train_data['babies']
+
 train_data = train_data[
     (adr >= 0) |
     ((week + weekend) != 0) |
@@ -91,63 +92,91 @@ train_data = preprocessing(train_data)
 def agg_function(x):
     return x.sum()
 
-# ------------- split data into train and validation set ------------- #
-valid_data = train_data.iloc[:20000, :]
-train_data = train_data.iloc[20000:, :]
-valid_label = train_label.iloc[:160, :]
-train_label = train_label.iloc[160:, :]
+# ------------- split data into training and validating set ------------- #
+valid_data = train_data.iloc[70000:, :]
+train_data_part = train_data.iloc[:70000:, :]
 
-# ------------- train y, x ------------- #
-y_train = train_label['label'].values
+valid_label = train_label.iloc[486:, :]
+train_label_part = train_label.iloc[:487, :]
+
+# ------------- original data without splitting ------------- #
+y_fit = train_label['label'].values
+
+x_fit = train_data.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
+x_fit_groupby = x_fit.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
+x_fit = x_fit_groupby.reset_index().values
+
+# ------------- training y, x ------------- #
+y_train = train_label_part['label'].values
 y_valid = valid_label['label'].values
-x_train_orig = train_data.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
+
+x_train_orig = train_data_part.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
 x_train_groupby = x_train_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
 x_train = x_train_groupby.reset_index().values
-x_valid_orig = train_data.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
+
+x_valid_orig = valid_data.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
 x_valid_groupby = x_valid_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
 x_valid = x_valid_groupby.reset_index().values
 
-# ------------- validation y, x ------------- #
+# ------------- validating y, x and selecet g- with minima error ------------- #
 gamma = ['scale', 'auto']
 kernel = ['poly', 'rbf', 'sigmoid']
 def select_model(C, kernel, degree, coef0):
-    E_val_list = []
-    for c in range(1, C*10+2, 5):
+    score_list = []
+    for c in range(5, C*10+1, 5):
         c = c/10
         for k in kernel:
             for d in range(3, degree+1):
                 for coef in range(0, coef0+1):
                     clf = SVC(C=c, kernel=k, degree=d, coef0=coef)
+
+                    # ------------- best score ------------- #
                     clf.fit(x_train, y_train)
+                    score = clf.score(x_valid, y_valid)
+                    score_list.append([c, k, d, coef, score])
 
-                    y_valid = clf.predict(x_valid)
+                    y_val = clf.predict(x_valid)
                     error = 0
-                    y_length = len(y_train)
-                    for i in range(0, y_length):
-                        error += abs(y_train[i]-y_valid[i])
-                    E_val = error/y_length
-                    E_val_list.append([c, k, d, coef, E_val])
-    return E_val_list
+                    for i in range(0, len(y_valid)):
+                        error += abs(y_val[i]-y_valid[i])
+                    E_val = error/len(y_valid)
+                    
+                    if E_val < 0.5:
+                        print(c, k ,d ,coef, E_val)
+                    
+    return score_list
 
-# E_val_list = select_model(5, kernel, 5, 5)
-# E_val_frame = pd.DataFrame(E_val_list, columns=['C', 'kernel', 'degree', 'coef', 'E_val'])
-# print(E_val_frame[E_val_frame['E_val'] == E_val_frame['E_val'].min()])
+score_list = select_model(5, kernel, 5, 5)
+score_frame = pd.DataFrame(score_list, columns=['C', 'kernel', 'degree', 'coef', 'score'])
+score_frame.to_csv('validation_error.csv')
+score_max = score_frame[score_frame['score'] == score_frame['score'].max()]
+
+# ------------- recalculate g with g- ------------- #
+c_best = score_max['C'].values[0]
+k_best = score_max['kernel'].values[0]
+d_best = score_max['degree'].values[0]
+coef_best = score_max['coef'].values[0]
+print('C: ', c_best, 'K: ', k_best, 'degree: ', d_best, 'coef0: ', coef_best)
+clf = SVC(C=c_best, kernel=k_best, degree=d_best, coef0=coef_best)
+clf.fit(x_fit, y_fit)
+
+# ------------- E_in ------------- #
+y_in = clf.predict(x_fit)
+print('score_in: ', clf.score(x_fit, y_fit))
 
 # ------------- test ------------- #
 test_data = pd.read_csv('test.csv').fillna(-1)
 test_label = pd.read_csv('test_nolabel.csv')
-
 test_data = preprocessing(test_data)
-test_x_orig = test_data.drop(labels='ID', axis=1)
-test_x_groupby = test_x_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
-test_x = test_x_groupby.reset_index().values
 
-clf = SVC(C=4, kernel='poly', degree=5, coef0=5)
-clf.fit(x_train, y_train)
-test_y = clf.predict(test_x)
-print(test_y)
-test_label['label'] = test_y
+x_test_orig = test_data.drop(labels='ID', axis=1)
+x_test_groupby = x_test_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
+x_test = x_test_groupby.reset_index().values
+
+y_test = clf.predict(x_test)
+test_label['label'] = y_test
 test_label.to_csv('test_label.csv', index=False)
+print('test output: ', y_test, sep='\n')
 
 # ------------- without data compression ------------- #
 # y = train_data['revenue'].values
