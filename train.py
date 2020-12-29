@@ -106,10 +106,10 @@ gamma = ['scale', 'auto']
 kernel = ['poly', 'rbf', 'sigmoid']
 def select_model(C, kernel, degree, coef0, is_score):
     # ------------- split ------------- #
-    x_train_part, x_valid_part, y_train_part, y_valid_part = train_test_split(x_all, y_all, test_size=0.3)
+    x_train_part, x_valid_part, y_train_part, y_valid_part = train_test_split(x_all, y_all, test_size=0.3, shuffle=False)
 
     point_list = []
-    for c in range(5, C*10+1, 5):
+    for c in range(2, C*10+1, 2):
         c = c/10
         for k in kernel:
             for d in range(3, degree+1):
@@ -132,9 +132,8 @@ def main(counts, is_score):
     y_test_list = []
     for count in range(0, counts):
         print('------------------------------------ ' + str(count) + ' ------------------------------------')
-        point_list = select_model(5, kernel, 5, 5, is_score)
+        point_list = select_model(3, kernel, 3, 3, is_score)
         point_frame = pd.DataFrame(point_list, columns=['C', 'kernel', 'degree', 'coef', 'point(score->max/E_val->min)'])
-        point_frame.to_csv('validation_error.csv')
         if is_score:
             point = point_frame[point_frame['point(score->max/E_val->min)'] == point_frame['point(score->max/E_val->min)'].max()]
         else:
@@ -177,7 +176,7 @@ def main(counts, is_score):
 
     return y_final
 
-y_final = main(1000, 1)
+y_final = main(1, 0)
 print(y_final)
 test_label['label'] = y_final
 test_label.to_csv('test_label.csv', index=False)
