@@ -27,6 +27,13 @@ month_converter = {
     'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
     'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
 }
+one_hot_category = [
+    'hotel', 'meal', 'country', 'market_segment', 'distribution_channel',
+    'reserved_room_type', 'assigned_room_type', 'deposit_type', 'customer_type'
+]
+one_hot_category_num = [
+    'agent', 'company'
+]
 
 # ------------- preprocessing ------------- #
 def preprocessing(train_data, test_data):
@@ -35,13 +42,20 @@ def preprocessing(train_data, test_data):
     for feature in train_features:
         scaler = MinMaxScaler(feature_range=(0, 1))
         le = LabelEncoder()
-        if train_data[feature].values.dtype == np.int32 or train_data[feature].values.dtype == np.float64:
+        if feature in one_hot_category_num:
+            scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
+            train_data[feature] = train_data[feature].fillna(-1)
+            test_data[feature] = test_data[feature].fillna(-1)
+            scaler.fit(train_data[[feature]])
+            train_data[feature] = scaler.transform(train_data[[feature]])
+            test_data[feature] = scaler.transform(test_data[[feature]])
+        elif train_data[feature].values.dtype == np.int32 or train_data[feature].values.dtype == np.float64:
             train_data[feature] = train_data[feature].fillna(0)
             test_data[feature] = test_data[feature].fillna(0)
             scaler.fit(train_data[[feature]])
             train_data[feature] = scaler.transform(train_data[[feature]])
             test_data[feature] = scaler.transform(test_data[[feature]])
-        elif feature == 'hotel':
+        elif feature in one_hot_category:
             scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
             train_data[feature] = train_data[feature].fillna('N/A')
             test_data[feature] = test_data[feature].fillna('N/A')

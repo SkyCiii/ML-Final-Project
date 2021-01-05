@@ -1,21 +1,22 @@
 import pandas as pd
 import numpy as np
+import math
 from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-train_data = pd.read_csv('train_one_hot.csv')
-train_label = pd.read_csv('train_label.csv')
-test_data = pd.read_csv('test_one_hot.csv')
-test_label = pd.read_csv('test_nolabel.csv')
-
-# train_data = pd.read_csv('train_no_one_hot.csv')
+# train_data = pd.read_csv('train_one_hot.csv')
 # train_label = pd.read_csv('train_label.csv')
-# test_data = pd.read_csv('test_no_one_hot.csv')
+# test_data = pd.read_csv('test_one_hot.csv')
 # test_label = pd.read_csv('test_nolabel.csv')
 
+train_data = pd.read_csv('train_no_one_hot.csv')
+train_label = pd.read_csv('train_label.csv')
+test_data = pd.read_csv('test_no_one_hot.csv')
+test_label = pd.read_csv('test_nolabel.csv')
+
 def agg_function(x):
-    return x.sum()
+        return x.sum() - x.prod()
 
 y_all = train_label['label'].values
 x_all_orig = train_data.drop(labels=['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'], axis=1)
@@ -27,7 +28,8 @@ def select_model(is_score):
     # ------------- split ------------- #
     x_train_part, x_valid_part, y_train_part, y_valid_part = train_test_split(x_all, y_all, test_size=0.2, shuffle=False)
 
-    clf = RandomForestClassifier()
+    # for c in range(5, 2000, 5):
+    clf = SVC(C=200)
 
     # ------------- best score ------------- #
     clf.fit(x_train_part, y_train_part)
@@ -38,7 +40,7 @@ def select_model(is_score):
         point = sum(abs(y_val - y_valid_part))/len(y_val)
         y_ref = clf.predict(x_train_part)
         point_ref = sum(abs(y_ref - y_train_part))/len(y_ref)
-    print(point, point_ref)
+    print(point)
 
     return clf
 
