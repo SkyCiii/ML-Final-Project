@@ -15,13 +15,19 @@ weekend = train_data['stays_in_weekend_nights']
 adults = train_data['adults']
 children = train_data['children']
 babies = train_data['babies']
+week_test = test_data['stays_in_week_nights']
+weekend_test = test_data['stays_in_weekend_nights']
+adults_test = test_data['adults']
+children_test = test_data['children']
+babies_test = test_data['babies']
 
-train_data = train_data[
-    (adr >= 0) |
-    ((week + weekend) != 0) |
-    ((adults + children + babies) != 0)
-]
+train_data = train_data[adr > 0]
+train_data = train_data[(week + weekend) != 0]
+train_data = train_data[(adults + children + babies) != 0]
+train_data = train_data[train_data['is_canceled'] != 1]
 
+test_data = test_data[(week_test + weekend_test) != 0]
+test_data = test_data[(adults_test + children_test + babies_test) != 0]
 # ------------- customized list for specific convertion ------------- #
 month_converter = {
     'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
@@ -35,9 +41,12 @@ one_hot_category_num = [
     'agent', 'company'
 ]
 
+train_adr = train_data.pop('adr')
+train_data.to_csv('train_orig.csv')
+test_data.to_csv('test_orig.csv')
 # ------------- preprocessing ------------- #
 def preprocessing(train_data, test_data):
-    train_features = train_data.columns.drop(['ID', 'is_canceled', 'adr', 'reservation_status', 'reservation_status_date'])
+    train_features = train_data.columns.drop(['ID', 'is_canceled', 'reservation_status', 'reservation_status_date'])
     test_features = test_data.columns.drop('ID')
     for feature in train_features:
         scaler = MinMaxScaler(feature_range=(0, 1))
@@ -93,3 +102,4 @@ train_data, test_data = preprocessing(train_data, test_data)
 
 train_data.to_csv('train_no_one_hot.csv', index=False)
 test_data.to_csv('test_no_one_hot.csv', index=False)
+train_adr.to_csv('train_adr.csv', index=False, header='adr')
