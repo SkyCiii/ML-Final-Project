@@ -5,95 +5,95 @@ from sklearn.svm import SVC, SVR
 from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-# train_data = pd.read_csv('train_one_hot.csv')
-# train_label = pd.read_csv('train_label.csv')
-# test_data = pd.read_csv('test_one_hot.csv')
-# test_label = pd.read_csv('test_nolabel.csv')
-
 train_data = pd.read_csv('train_no_one_hot.csv')
 train_label = pd.read_csv('train_label.csv')
-test_data = pd.read_csv('test_no_one_hot.csv')
-test_label = pd.read_csv('test_nolabel.csv')
 train_adr = pd.read_csv('train_adr.csv')
 train_orig = pd.read_csv('train_orig.csv')
 
+x = train_data.drop(labels=['ID', 'is_canceled', 'reservation_status', 'reservation_status_date'], axis=1)
 adr = train_adr['adr'].values
-x_all = train_data.drop(labels=['ID', 'is_canceled', 'reservation_status', 'reservation_status_date'], axis=1)
-        
-def agg_function(x):
-    return x.sum()
 
-def select_model(is_score):
-    for c in [1, 10, 100, 200, 500, 1000, 1200, 1500]:
-        print('------------------------------------ Yiiiii ------------------------------------')
-        train_data = pd.read_csv('train_no_one_hot.csv')
-        train_label = pd.read_csv('train_label.csv')
-        test_data = pd.read_csv('test_no_one_hot.csv')
-        test_label = pd.read_csv('test_nolabel.csv')
-        train_adr = pd.read_csv('train_adr.csv')
-        train_orig = pd.read_csv('train_orig.csv')
+test_data = pd.read_csv('test_no_one_hot.csv')
+test_label = pd.read_csv('test_nolabel.csv')
 
-        adr = train_adr['adr'].values
-        x_all = train_data.drop(labels=['ID', 'is_canceled', 'reservation_status', 'reservation_status_date'], axis=1)
-        # x_all_groupby = x_all_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
-        # x_all = x_all_groupby.reset_index().values
+x_test = test_data.drop(labels='ID', axis=1)
 
-        # ------------- validating y, x and selecet g- with minima error ------------- #
-        # ------------- split ------------- #
-        x_train_part, x_valid_part, adr_train_part, adr_valid_part = train_test_split(x_all, adr, test_size=13442, shuffle=False)
+def is_canceled():
+    train_is_canceled = pd.read_csv('train_is_canceled.csv')
+    train_is_canceled = train_is_canceled.drop(labels=['ID', 'reservation_status', 'adr', 'reservation_status_date'], axis=1)
+    is_canceled_label = pd.read_csv('is_canceled_label.csv')
+    is_canceled_label = is_canceled_label['is_canceled'].values
+    test_orig = pd.read_csv('test_orig.csv')
 
-        clf = SVR(C=c)
-        # ------------- best score ------------- #
-        clf.fit(x_train_part, adr_train_part)
-        print(clf)
+    # is_canceled_x_train, is_canceled_x_valid, is_canceled_y_train, is_canceled_y_valid = train_test_split(train_is_canceled, is_canceled_label, test_size=0.2, shuffle=False)
+    clf = SVC()
+    # clf.fit(is_canceled_x_train, is_canceled_y_train)
+    # is_canceled_y_predict = clf.predict(is_canceled_x_valid)
+    # E_val_is_canceled = sum(abs(is_canceled_y_predict - is_canceled_y_valid))/len(is_canceled_y_valid)
+    clf.fit(train_is_canceled, is_canceled_label)
+    is_canceled_y = clf.predict(x_test)
+    x_test['is_canceled'] = is_canceled_y
+    test_orig['is_canceled'] = is_canceled_y
+    x_test_is_canceled = x_test[x_test['is_canceled'] != 1]
+    test_orig_is_canceled = test_orig[test_orig['is_canceled'] != 1]
+    x_test_is_canceled.to_csv('test_is_canceled.csv', index=False)
+    test_orig_is_canceled.to_csv('test_orig_is_canceled.csv', index=False)
 
-        adr_val = clf.predict(x_valid_part)
-        point = sum(abs(adr_val - adr_valid_part))/len(adr_val)
+    return x_test_is_canceled, test_orig_is_canceled
 
-        # print(x_valid_part, pd.DataFrame(adr_val), point)
-        x_valid_part['adr_predict'] = adr_val
-        valid_days = train_orig['stays_in_week_nights'].iloc[43684:].values + train_orig['stays_in_weekend_nights'].iloc[43684:].values
-        x_valid_part['revenue'] = valid_days * x_valid_part['adr_predict'].values
-        # print(x_valid_part['revenue'])
-        x_valid_groupby = x_valid_part.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).sum()
-        # print(x_valid_groupby['revenue'], len(x_valid_groupby['revenue']))
-        x_valid = x_valid_groupby.reset_index()
-        y_valid_part = np.floor(x_valid['revenue'].values/10000)
-        y_val = train_label['label'].iloc[489:].values
-        print(c, sum(abs(y_val - y_valid_part))/len(y_val))
-    return clf
+x_test_is_canceled, test_orig_is_canceled = is_canceled()
+print(x_test_is_canceled, test_orig_is_canceled)
 
-# clf = select_model(0)
+def validation():
+    print('------------------------------------ Validation ------------------------------------')
+    
+    x_train, x_valid, adr_train, adr_valid = train_test_split(x, adr, test_size=13442, shuffle=False)
 
-# adr_test_list = []
-clf = SVR(C=1)
-# ------------- fit the model with g and optimal parameters ------------- #
-clf.fit(x_all, adr)
+    clf = SVR(C=1)
+    clf.fit(x_train, adr_train)
 
-# ------------- E_in ------------- #
-adr_in = clf.predict(x_all)
-E_in = sum(abs(adr_in - adr))/len(adr)
-print(
-    'E_in: ', E_in,
-    'score_in: ', clf.score(x_all, adr),
-)
+    adr_predict = clf.predict(x_valid)
+    E_val_adr = sum(abs(adr_predict - adr_valid))/len(adr_predict)
 
-# ------------- test ------------- #
-x_test_orig = test_data.drop(labels='ID', axis=1)
-# # x_test_groupby = x_test_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
-# # x_test = x_test_groupby.reset_index().values
+    x_valid['adr_predict'] = adr_predict
+    valid_days = train_orig['stays_in_week_nights'].iloc[43684:].values + train_orig['stays_in_weekend_nights'].iloc[43684:].values
+    x_valid['revenue'] = valid_days * x_valid['adr_predict'].values
+    x_valid_groupby = x_valid.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).sum()
+    print(x_valid_groupby['revenue'], len(x_valid_groupby['revenue']))
+    x_valid = x_valid_groupby.reset_index()
+    y_predict = np.floor(x_valid['revenue'].values/10000)
+    y_valid = train_label['label'].iloc[489:].values
+    E_val_label = sum(abs(y_predict - y_valid))/len(y_predict)
 
-test_orig = pd.read_csv('test_orig.csv')
-adr_test = clf.predict(x_test_orig)
-print(adr_test)
-days_test = test_orig['stays_in_week_nights'].values + test_orig['stays_in_weekend_nights'].values
-x_test_orig['revenue'] = days_test * adr_test
-print(x_test_orig['revenue'])
-x_test_groupby = x_test_orig.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).agg(agg_function)
-print(x_test_groupby)
-x_test = x_test_groupby.reset_index()
-y_test = np.floor(x_test['revenue'].values/10000)
+    return E_val_adr, E_val_label
 
+# E_val_adr, E_val_label = validation()
+
+def main():
+    x_test_is_canceled = pd.read_csv('test_is_canceled.csv')
+    x_test_is_canceled = x_test_is_canceled.drop('is_canceled', axis=1)
+    test_orig_is_canceled = pd.read_csv('test_orig_is_canceled.csv')
+    
+    clf = SVR(C=1)
+    clf.fit(x, adr)
+
+    adr_in = clf.predict(x)
+    E_in = sum(abs(adr_in - adr))/len(adr)
+    print('E_in: ', E_in, 'score_in: ', clf.score(x, adr))
+    
+    adr_predict = clf.predict(x_test_is_canceled)
+    print(adr_predict)
+    days_test = test_orig_is_canceled['stays_in_week_nights'].values + test_orig_is_canceled['stays_in_weekend_nights'].values
+    x_test_is_canceled['revenue'] = days_test * adr_predict
+    print(x_test_is_canceled['revenue'])
+    x_test_is_canceled_groupby = x_test_is_canceled.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).sum()
+    print(x_test_is_canceled_groupby)
+    x_test = x_test_is_canceled_groupby.reset_index()
+    y_test = np.floor(x_test['revenue'].values/10000)
+
+    return y_test
+
+y_test = main()
 print(y_test)
 test_label['label'] = y_test
 test_label.to_csv('test_label.csv', index=False)

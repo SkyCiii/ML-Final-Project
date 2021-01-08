@@ -2,13 +2,11 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, OneHotEncoder
 
-# ------------- import ------------- #
 train_data = pd.read_csv('train.csv')
 train_label = pd.read_csv('train_label.csv')
 test_data = pd.read_csv('test.csv')
 test_label = pd.read_csv('test_nolabel.csv')
 
-# ------------- drop invalid data ------------- #
 adr = train_data['adr']
 week = train_data['stays_in_week_nights']
 weekend = train_data['stays_in_weekend_nights']
@@ -28,7 +26,7 @@ train_data = train_data[train_data['is_canceled'] != 1]
 
 test_data = test_data[(week_test + weekend_test) != 0]
 test_data = test_data[(adults_test + children_test + babies_test) != 0]
-# ------------- customized list for specific convertion ------------- #
+
 month_converter = {
     'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
     'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
@@ -42,9 +40,10 @@ one_hot_category_num = [
 ]
 
 train_adr = train_data.pop('adr')
+
 train_data.to_csv('train_orig.csv')
 test_data.to_csv('test_orig.csv')
-# ------------- preprocessing ------------- #
+
 def preprocessing(train_data, test_data):
     train_features = train_data.columns.drop(['ID', 'is_canceled', 'reservation_status', 'reservation_status_date'])
     test_features = test_data.columns.drop('ID')
@@ -52,9 +51,9 @@ def preprocessing(train_data, test_data):
         scaler = MinMaxScaler(feature_range=(0, 1))
         le = LabelEncoder()
         if feature in one_hot_category_num:
-            scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
-            train_data[feature] = train_data[feature].fillna(-1)
-            test_data[feature] = test_data[feature].fillna(-1)
+            # scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
+            train_data[feature] = train_data[feature].fillna(0)
+            test_data[feature] = test_data[feature].fillna(0)
             scaler.fit(train_data[[feature]])
             train_data[feature] = scaler.transform(train_data[[feature]])
             test_data[feature] = scaler.transform(test_data[[feature]])
@@ -65,7 +64,7 @@ def preprocessing(train_data, test_data):
             train_data[feature] = scaler.transform(train_data[[feature]])
             test_data[feature] = scaler.transform(test_data[[feature]])
         elif feature in one_hot_category:
-            scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
+            # scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
             train_data[feature] = train_data[feature].fillna('N/A')
             test_data[feature] = test_data[feature].fillna('N/A')
             train_category = train_data[feature].astype('category').values.categories
