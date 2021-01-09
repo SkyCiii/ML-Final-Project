@@ -31,6 +31,7 @@ def is_canceled():
     index = test_with_is_canceled[test_with_is_canceled['is_canceled'] != 1].index.values
     print(index)
     x_test_is_canceled = x_test.iloc[index]
+    x_test_hong = test_with_is_canceled.iloc[index]
     test_orig_is_canceled = test_orig.iloc[index]
 
     # # is_canceled_x_train, is_canceled_x_valid, is_canceled_y_train, is_canceled_y_valid = train_test_split(train_is_canceled, is_canceled_label, test_size=0.2, shuffle=False)
@@ -44,15 +45,15 @@ def is_canceled():
     # test_orig['is_canceled'] = is_canceled_y
     # x_test_is_canceled = x_test[x_test['is_canceled'] != 1]
     # test_orig_is_canceled = test_orig[test_orig['is_canceled'] != 1]
-    # x_test_is_canceled.to_csv('test_is_canceled.csv', index=False)
-    # test_orig_is_canceled.to_csv('test_orig_is_canceled.csv', index=False)
+    x_test_is_canceled.to_csv('test_is_canceled.csv', index=False)
+    x_test_hong.to_csv('x_test_hong.csv', index=False)
+    test_orig_is_canceled.to_csv('test_orig_is_canceled.csv', index=False)
     # pd.DataFrame(is_canceled_y).to_csv('predict.csv')
     # print(E_val_is_canceled)
 
-    return x_test_is_canceled, test_orig_is_canceled
+    return None
 
-x_test_is_canceled, test_orig_is_canceled = is_canceled()
-print(x_test_is_canceled, test_orig_is_canceled)
+# is_canceled()
 
 def validation():
     print('------------------------------------ Validation ------------------------------------')
@@ -81,17 +82,18 @@ def validation():
 
 def main():
     x_test_is_canceled = pd.read_csv('test_is_canceled.csv')
+    x_test_hong = pd.read_csv('x_test_hong.csv')
     # x_test_is_canceled = x_test_is_canceled.drop('is_canceled', axis=1)
     test_orig_is_canceled = pd.read_csv('test_orig_is_canceled.csv')
 
-    clf = SVR(C=1)
+    clf = SVR(C=500)
     clf.fit(x, adr)
 
-    adr_in = clf.predict(x)
-    E_in = sum(abs(adr_in - adr))/len(adr)
-    print('E_in: ', E_in, 'score_in: ', clf.score(x, adr))
+    # adr_in = clf.predict(x)
+    # E_in = sum(abs(adr_in - adr))/len(adr)
+    # print('E_in: ', E_in, 'score_in: ', clf.score(x, adr))
     
-    adr_predict = clf.predict(x_test_is_canceled)
+    adr_predict = clf.predict(x_test_hong)
     print(adr_predict)
     days_test = test_orig_is_canceled['stays_in_week_nights'].values + test_orig_is_canceled['stays_in_weekend_nights'].values
     x_test_is_canceled['revenue'] = days_test * adr_predict
@@ -102,9 +104,10 @@ def main():
     x_test = x_test_is_canceled_groupby.reset_index()
     y_test = np.floor(x_test['revenue'].values/10000)
 
+    print(y_test)
+    test_label['label'] = y_test
+    test_label.to_csv('test_label_'+str(200)+'.csv', index=False)
+
     return y_test
 
 y_test = main()
-print(y_test)
-test_label['label'] = y_test
-test_label.to_csv('test_label.csv', index=False)
