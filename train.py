@@ -86,7 +86,7 @@ def main():
     # x_test_is_canceled = x_test_is_canceled.drop('is_canceled', axis=1)
     test_orig_is_canceled = pd.read_csv('test_orig_is_canceled.csv')
 
-    clf = SVR(C=500)
+    clf = SVR(C=200)
     clf.fit(x, adr)
 
     # adr_in = clf.predict(x)
