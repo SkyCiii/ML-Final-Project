@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder, RobustScaler
 
 train_data = pd.read_csv('train.csv')
 train_label = pd.read_csv('train_label.csv')
@@ -48,7 +48,7 @@ def preprocessing(train_data, test_data):
     train_features = train_data.columns.drop(['ID', 'is_canceled', 'reservation_status', 'reservation_status_date'])
     test_features = test_data.columns.drop('ID')
     for feature in train_features:
-        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
         le = LabelEncoder()
         if feature in one_hot_category_num:
             # scaler = MinMaxScaler(feature_range=(-0.5, 0.5))

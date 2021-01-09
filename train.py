@@ -25,19 +25,29 @@ def is_canceled():
     is_canceled_label = is_canceled_label['is_canceled'].values
     test_orig = pd.read_csv('test_orig.csv')
 
-    # is_canceled_x_train, is_canceled_x_valid, is_canceled_y_train, is_canceled_y_valid = train_test_split(train_is_canceled, is_canceled_label, test_size=0.2, shuffle=False)
-    clf = SVC()
-    # clf.fit(is_canceled_x_train, is_canceled_y_train)
-    # is_canceled_y_predict = clf.predict(is_canceled_x_valid)
-    # E_val_is_canceled = sum(abs(is_canceled_y_predict - is_canceled_y_valid))/len(is_canceled_y_valid)
-    clf.fit(train_is_canceled, is_canceled_label)
-    is_canceled_y = clf.predict(x_test)
-    x_test['is_canceled'] = is_canceled_y
-    test_orig['is_canceled'] = is_canceled_y
-    x_test_is_canceled = x_test[x_test['is_canceled'] != 1]
-    test_orig_is_canceled = test_orig[test_orig['is_canceled'] != 1]
-    x_test_is_canceled.to_csv('test_is_canceled.csv', index=False)
-    test_orig_is_canceled.to_csv('test_orig_is_canceled.csv', index=False)
+    index = test_orig.index.values
+    test_with_is_canceled = pd.read_csv('test_with_is_canceled.csv')
+    test_with_is_canceled = test_with_is_canceled.iloc[index]
+    index = test_with_is_canceled[test_with_is_canceled['is_canceled'] != 1].index.values
+    print(index)
+    x_test_is_canceled = x_test.iloc[index]
+    test_orig_is_canceled = test_orig.iloc[index]
+
+    # # is_canceled_x_train, is_canceled_x_valid, is_canceled_y_train, is_canceled_y_valid = train_test_split(train_is_canceled, is_canceled_label, test_size=0.2, shuffle=False)
+    # clf = SVC()
+    # # clf.fit(is_canceled_x_train, is_canceled_y_train)
+    # # is_canceled_y_predict = clf.predict(is_canceled_x_valid)
+    # # E_val_is_canceled = sum(abs(is_canceled_y_predict - is_canceled_y_valid))/len(is_canceled_y_valid)
+    # clf.fit(train_is_canceled, is_canceled_label)
+    # is_canceled_y = clf.predict(x_test)
+    # x_test['is_canceled'] = is_canceled_y
+    # test_orig['is_canceled'] = is_canceled_y
+    # x_test_is_canceled = x_test[x_test['is_canceled'] != 1]
+    # test_orig_is_canceled = test_orig[test_orig['is_canceled'] != 1]
+    # x_test_is_canceled.to_csv('test_is_canceled.csv', index=False)
+    # test_orig_is_canceled.to_csv('test_orig_is_canceled.csv', index=False)
+    # pd.DataFrame(is_canceled_y).to_csv('predict.csv')
+    # print(E_val_is_canceled)
 
     return x_test_is_canceled, test_orig_is_canceled
 
@@ -71,9 +81,9 @@ def validation():
 
 def main():
     x_test_is_canceled = pd.read_csv('test_is_canceled.csv')
-    x_test_is_canceled = x_test_is_canceled.drop('is_canceled', axis=1)
+    # x_test_is_canceled = x_test_is_canceled.drop('is_canceled', axis=1)
     test_orig_is_canceled = pd.read_csv('test_orig_is_canceled.csv')
-    
+
     clf = SVR(C=1)
     clf.fit(x, adr)
 
@@ -86,6 +96,7 @@ def main():
     days_test = test_orig_is_canceled['stays_in_week_nights'].values + test_orig_is_canceled['stays_in_weekend_nights'].values
     x_test_is_canceled['revenue'] = days_test * adr_predict
     print(x_test_is_canceled['revenue'])
+    # x_test_is_canceled = x_test_is_canceled[x_test_is_canceled['revenue'] > 0]
     x_test_is_canceled_groupby = x_test_is_canceled.groupby(['arrival_date_year', 'arrival_date_month', 'arrival_date_day_of_month']).sum()
     print(x_test_is_canceled_groupby)
     x_test = x_test_is_canceled_groupby.reset_index()
