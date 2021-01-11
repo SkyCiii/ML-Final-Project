@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.svm import SVR
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
 from preprocessing import preprocessing
 
@@ -72,7 +72,7 @@ def main(train_data, train_adr, test_label):
     test_is_canceled = pd.read_csv('test_is_canceled.csv')
     test_orig_is_canceled = pd.read_csv('test_orig_is_canceled.csv')
 
-    clf = SVR(C=300)
+    clf = GradientBoostingRegressor()
     clf.fit(train_data, train_adr)
 
     adr_predict = clf.predict(test_is_canceled)
